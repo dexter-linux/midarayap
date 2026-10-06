@@ -2,6 +2,7 @@ import base64
 import datetime
 import json
 import os
+import random
 import time
 import streamlit as st
 
@@ -104,11 +105,25 @@ CHAT_FILE = "chat_rooms.json"
 
 
 def load_chat_data():
-    """Load chat rooms and metadata from shared JSON storage."""
+    """Load chat rooms and metadata safely from shared JSON storage."""
     if os.path.exists(CHAT_FILE):
         try:
             with open(CHAT_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                if isinstance(data, dict):
+                    # Sanitize any legacy room structures that were lists
+                    clean_data = {}
+                    for room_name, room_val in data.items():
+                        if isinstance(room_val, dict):
+                            clean_data[room_name] = room_val
+                        elif isinstance(room_val, list):
+                            clean_data[room_name] = {
+                                "host": "Legacy Host",
+                                "pin": "",
+                                "messages": room_val,
+                                "active": True,
+                            }
+                    return clean_data
         except Exception:
             pass
     return {}
@@ -138,31 +153,48 @@ with st.sidebar:
     if action == "Host New Room":
         st.markdown("### 🔑 Host Room Settings")
         new_room_id = st.text_input("New Room Name / ID:")
-        room_pin = st.text_input("Set Room Security PIN:", type="password")
+
+        auto_pin = st.checkbox("Auto-generate 6-digit PIN", value=True)
+
+        if auto_pin:
+            if "random_pin_val" not in st.session_state:
+                st.session_state["random_pin_val"] = str(
+                    random.randint(100000, 999999)
+                )
+            room_pin = st.session_state["random_pin_val"]
+            st.info(f"🔑 Your Auto-Generated PIN: **{room_pin}**")
+        else:
+            room_pin = st.text_input("Set Custom Room PIN:", type="password")
 
         if st.button("🚀 Create & Host Room"):
-            if not new_room_id.strip():
+            clean_room_id = new_room_id.strip()
+            if not clean_room_id:
                 st.error("Room Name cannot be empty.")
-            elif new_room_id.strip() in chat_data:
+            elif clean_room_id in chat_data:
                 st.error("A room with this name already exists!")
             else:
-                chat_data[new_room_id.strip()] = {
+                chat_data[clean_room_id] = {
                     "host": username,
-                    "pin": room_pin.strip(),
+                    "pin": str(room_pin).strip(),
                     "messages": [],
                     "active": True,
                 }
                 save_chat_data(chat_data)
-                st.session_state["current_room"] = new_room_id.strip()
+                st.session_state["current_room"] = clean_room_id
                 st.session_state["is_host"] = True
-                st.session_state["authenticated_room"] = new_room_id.strip()
-                st.success(f"Room '{new_room_id.strip()}' created as Host!")
+                st.session_state["authenticated_room"] = clean_room_id
+                if "random_pin_val" in st.session_state:
+                    del st.session_state["random_pin_val"]
+                st.success(f"Room '{clean_room_id}' created as Host!")
                 st.rerun()
 
     else:
         st.markdown("### 🚪 Join Room")
+        # Safe dictionary attribute check prevents AttributeError on legacy lists
         available_rooms = [
-            r for r, data in chat_data.items() if data.get("active", True)
+            r
+            for r, data in chat_data.items()
+            if isinstance(data, dict) and data.get("active", True)
         ]
 
         if not available_rooms:
@@ -177,8 +209,16 @@ with st.sidebar:
             )
 
             if st.button("🔓 Enter Room"):
-                room_info = chat_data[selected_room]
-                expected_pin = room_info.get("pin", "")
+                room_info = chat_data.get(selected_room, {})
+                if not isinstance(room_info, dict):
+                    room_info = {
+                        "host": "Unknown",
+                        "pin": "",
+                        "messages": [],
+                        "active": True,
+                    }
+
+                expected_pin = str(room_info.get("pin", ""))
 
                 if expected_pin and enter_pin.strip() != expected_pin:
                     st.error("Incorrect PIN!")
@@ -192,7 +232,7 @@ with st.sidebar:
                     st.rerun()
 
     st.markdown("---")
-    st.caption("ℹ️️ Messages update automatically when refreshing or sending.")
+    st.caption("ℹ️ Messages update automatically when refreshing or sending.")
 
 # ==========================================
 # 4. MAIN INTERFACE & ROOM LOGIC
@@ -212,6 +252,9 @@ if not active_room or active_room not in chat_data:
     st.stop()
 
 room_info = chat_data[active_room]
+
+if not isinstance(room_info, dict):
+    room_info = {"host": "Unknown", "pin": "", "messages": [], "active": True}
 
 # Check if room was closed by the host
 if not room_info.get("active", True):
@@ -245,8 +288,9 @@ with col_host_actions:
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("🔥 Close Room & Wipe All Data", type="primary"):
             # Completely delete room and messages from storage
-            del chat_data[active_room]
-            save_chat_data(chat_data)
+            if active_room in chat_data:
+                del chat_data[active_room]
+                save_chat_data(chat_data)
             if "authenticated_room" in st.session_state:
                 del st.session_state["authenticated_room"]
             st.success("Session closed! All chat history wiped instantly.")
@@ -292,33 +336,34 @@ with st.expander("📎 Attach Media / Voice Note"):
 # ==========================================
 # 6. RENDER CHAT MESSAGES
 # ==========================================
-messages = room_info.get("messages", [])
+messages = room_info.get("messages", []) if isinstance(room_info, dict) else []
 
 if not messages:
     st.info("Room is active and secure. Send a message or media below!")
 else:
     for msg in messages:
-        sender = msg.get("sender", "Anonymous")
-        timestamp = msg.get("timestamp", "")
-        text = msg.get("text", "")
+        if isinstance(msg, dict):
+            sender = msg.get("sender", "Anonymous")
+            timestamp = msg.get("timestamp", "")
+            text = msg.get("text", "")
 
-        st.markdown(
-            f"""
-            <div class="chat-bubble">
-                <span style="font-weight: 700; color: #a8e063;">{sender}</span>
-                <span style="font-size: 0.8rem; color: #a3e635; float: right;">{timestamp}</span>
-                <p style="margin-top: 0.5rem; margin-bottom: 0.5rem; color: #e8f5e9;">{text}</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+            st.markdown(
+                f"""
+                <div class="chat-bubble">
+                    <span style="font-weight: 700; color: #a8e063;">{sender}</span>
+                    <span style="font-size: 0.8rem; color: #a3e635; float: right;">{timestamp}</span>
+                    <p style="margin-top: 0.5rem; margin-bottom: 0.5rem; color: #e8f5e9;">{text}</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-        if msg.get("image_data"):
-            st.image(base64.b64decode(msg["image_data"]))
-        if msg.get("audio_data"):
-            st.audio(base64.b64decode(msg["audio_data"]))
-        if msg.get("video_data"):
-            st.video(base64.b64decode(msg["video_data"]))
+            if msg.get("image_data"):
+                st.image(base64.b64decode(msg["image_data"]))
+            if msg.get("audio_data"):
+                st.audio(base64.b64decode(msg["audio_data"]))
+            if msg.get("video_data"):
+                st.video(base64.b64decode(msg["video_data"]))
 
 st.markdown('<div class="forest-line"></div>', unsafe_allow_html=True)
 
@@ -347,6 +392,7 @@ if user_message or uploaded_image or uploaded_audio or uploaded_video:
             uploaded_video.read()
         ).decode("utf-8")
 
-    chat_data[active_room]["messages"].append(new_msg)
-    save_chat_data(chat_data)
-    st.rerun()
+    if isinstance(chat_data.get(active_room), dict):
+        chat_data[active_room]["messages"].append(new_msg)
+        save_chat_data(chat_data)
+        st.rerun()
