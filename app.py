@@ -7,33 +7,31 @@ import time
 import streamlit as st
 
 # ==========================================
-# 1. STREAMLIT CONFIG & FOREST THEME CSS
+# 1. STREAMLIT CONFIG & CLIMATE THEMES (CSS)
 # ==========================================
 st.set_page_config(
     page_title="Whispers — Private Session Chat",
-    page_icon="🌲",
+    page_icon="🌿",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-FOREST_CSS = """
+# --- THEME DEFINITIONS ---
+
+# Option 1: 🌲 Pine Forest Theme
+FOREST_THEME = """
 <style>
-/* App background - Deep Pine & Sage Mist */
 .stApp {
     background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
     color: #e8f5e9;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
-
-/* Sidebar styling - Glassmorphism Forest Mist */
 [data-testid="stSidebar"] {
     background: rgba(15, 32, 39, 0.85);
     backdrop-filter: blur(12px);
     border-right: 1px solid rgba(76, 175, 80, 0.2);
 }
-
-/* Main title styling - Emerald & Glowing Mint */
-.forest-header {
+.theme-header {
     background: linear-gradient(90deg, #a8e063 0%, #56ab2f 50%, #2e7d32 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -42,61 +40,112 @@ FOREST_CSS = """
     margin-bottom: 0.2rem;
     letter-spacing: -1px;
 }
-
-.forest-subtitle {
-    color: #a3e635;
-    font-size: 1.05rem;
-    margin-bottom: 1.5rem;
-    font-weight: 500;
-}
-
-/* Inputs, Textarea & Selectbox Styling */
-textarea, input, select {
-    background-color: rgba(20, 40, 48, 0.85) !important;
-    color: #f1f8e9 !important;
-    border: 1px solid #4caf50 !important;
-    border-radius: 10px !important;
-}
-
-/* Custom Message Bubble - Dark Moss Glass Card */
-.chat-bubble {
-    background: rgba(255, 255, 255, 0.07);
-    backdrop-filter: blur(12px);
-    border-radius: 14px;
-    padding: 1rem 1.2rem;
-    border: 1px solid rgba(129, 199, 132, 0.2);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
-    margin-bottom: 1rem;
-}
-
-/* Buttons - Emerald Canopy */
-.stButton > button {
-    background: linear-gradient(135deg, #56ab2f 0%, #2e7d32 100%) !important;
-    color: white !important;
-    border: none !important;
-    border-radius: 12px !important;
-    padding: 0.5rem 1.5rem !important;
-    font-weight: 600 !important;
-    box-shadow: 0 4px 15px rgba(46, 125, 50, 0.4) !important;
-    transition: all 0.3s ease !important;
-}
-
-.stButton > button:hover {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 6px 20px rgba(168, 224, 99, 0.5) !important;
-}
-
-/* Forest Line Divider */
-.forest-line {
-    height: 4px;
-    background: linear-gradient(90deg, transparent, #56ab2f, #a8e063, transparent);
-    border-radius: 2px;
-    margin: 1.5rem 0;
-}
+.theme-subtitle { color: #a3e635; font-size: 1.05rem; margin-bottom: 1.5rem; font-weight: 500; }
+textarea, input, select { background-color: rgba(20, 40, 48, 0.85) !important; color: #f1f8e9 !important; border: 1px solid #4caf50 !important; border-radius: 10px !important; }
+.chat-bubble { background: rgba(255, 255, 255, 0.07); backdrop-filter: blur(12px); border-radius: 14px; padding: 1rem 1.2rem; border: 1px solid rgba(129, 199, 132, 0.2); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25); margin-bottom: 1rem; }
+.stButton > button { background: linear-gradient(135deg, #56ab2f 0%, #2e7d32 100%) !important; color: white !important; border: none !important; border-radius: 12px !important; padding: 0.5rem 1.5rem !important; font-weight: 600 !important; box-shadow: 0 4px 15px rgba(46, 125, 50, 0.4) !important; }
+.stButton > button:hover { transform: translateY(-2px) !important; box-shadow: 0 6px 20px rgba(168, 224, 99, 0.5) !important; }
+.theme-line { height: 4px; background: linear-gradient(90deg, transparent, #56ab2f, #a8e063, transparent); border-radius: 2px; margin: 1.5rem 0; }
 </style>
 """
 
-st.markdown(FOREST_CSS, unsafe_allow_html=True)
+# Option 2: 🌊 Ocean Abyss Theme
+OCEAN_THEME = """
+<style>
+.stApp {
+    background: linear-gradient(135deg, #0b192c 0%, #1e3e62 50%, #001f3f 100%);
+    color: #f0f8ff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+[data-testid="stSidebar"] {
+    background: rgba(11, 25, 44, 0.85);
+    backdrop-filter: blur(10px);
+    border-right: 1px solid rgba(0, 210, 255, 0.2);
+}
+.theme-header {
+    background: linear-gradient(90deg, #00d2ff 0%, #3a7bd5 50%, #00f2fe 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 2.8rem;
+    font-weight: 800;
+    margin-bottom: 0.2rem;
+    letter-spacing: -1px;
+}
+.theme-subtitle { color: #a8dadc; font-size: 1.05rem; margin-bottom: 1.5rem; font-weight: 500; }
+textarea, input, select { background-color: rgba(15, 32, 67, 0.8) !important; color: #e0f7fa !important; border: 1px solid #00b4db !important; border-radius: 10px !important; }
+.chat-bubble { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); border-radius: 14px; padding: 1rem 1.2rem; border: 1px solid rgba(0, 212, 255, 0.25); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37); margin-bottom: 1rem; }
+.stButton > button { background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%) !important; color: white !important; border: none !important; border-radius: 12px !important; padding: 0.5rem 1.5rem !important; font-weight: 600 !important; box-shadow: 0 4px 15px rgba(0, 180, 219, 0.4) !important; }
+.stButton > button:hover { transform: translateY(-2px) !important; box-shadow: 0 6px 20px rgba(0, 242, 254, 0.6) !important; }
+.theme-line { height: 4px; background: linear-gradient(90deg, transparent, #00d2ff, #00f2fe, transparent); border-radius: 2px; margin: 1.5rem 0; }
+</style>
+"""
+
+# Option 3: 🏜️ Warm Desert Sunset Theme
+DESERT_THEME = """
+<style>
+.stApp {
+    background: linear-gradient(135deg, #fdfbf7 0%, #fef5ed 50%, #f7ebe1 100%);
+    color: #2c2523;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+[data-testid="stSidebar"] {
+    background: rgba(253, 246, 238, 0.9);
+    backdrop-filter: blur(10px);
+    border-right: 1px solid rgba(224, 130, 93, 0.2);
+}
+.theme-header {
+    background: linear-gradient(90deg, #e05638 0%, #d97736 50%, #c85a32 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 2.8rem;
+    font-weight: 800;
+    margin-bottom: 0.2rem;
+    letter-spacing: -1px;
+}
+.theme-subtitle { color: #7c5c4e; font-size: 1.05rem; margin-bottom: 1.5rem; font-weight: 500; }
+textarea, input, select { background-color: #ffffff !important; color: #2c2523 !important; border: 1px solid #e0825d !important; border-radius: 10px !important; }
+.chat-bubble { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border-radius: 14px; padding: 1rem 1.2rem; border: 1px solid rgba(224, 130, 93, 0.25); box-shadow: 0 4px 15px rgba(184, 115, 84, 0.06); margin-bottom: 1rem; }
+.stButton > button { background: linear-gradient(135deg, #e05638 0%, #d97736 100%) !important; color: white !important; border: none !important; border-radius: 12px !important; padding: 0.5rem 1.5rem !important; font-weight: 600 !important; box-shadow: 0 4px 15px rgba(224, 86, 56, 0.3) !important; }
+.stButton > button:hover { transform: translateY(-2px) !important; box-shadow: 0 6px 20px rgba(224, 86, 56, 0.5) !important; }
+.theme-line { height: 4px; background: linear-gradient(90deg, transparent, #e05638, #f0a273, transparent); border-radius: 2px; margin: 1.5rem 0; }
+</style>
+"""
+
+# Option 4: 🌿 Lush Botanical Garden Theme
+PLANTS_THEME = """
+<style>
+.stApp {
+    background: linear-gradient(135deg, #f4f9f4 0%, #e8f1e5 50%, #dbe7d6 100%);
+    color: #1b3b22;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+[data-testid="stSidebar"] {
+    background: rgba(244, 249, 244, 0.9);
+    backdrop-filter: blur(10px);
+    border-right: 1px solid rgba(46, 125, 50, 0.2);
+}
+.theme-header {
+    background: linear-gradient(90deg, #2e7d32 0%, #388e3c 50%, #1b5e20 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 2.8rem;
+    font-weight: 800;
+    margin-bottom: 0.2rem;
+    letter-spacing: -1px;
+}
+.theme-subtitle { color: #43a047; font-size: 1.05rem; margin-bottom: 1.5rem; font-weight: 500; }
+textarea, input, select { background-color: #ffffff !important; color: #1b3b22 !important; border: 1px solid #4caf50 !important; border-radius: 10px !important; }
+.chat-bubble { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); border-radius: 14px; padding: 1rem 1.2rem; border: 1px solid rgba(76, 175, 80, 0.25); box-shadow: 0 4px 15px rgba(46, 125, 50, 0.08); margin-bottom: 1rem; }
+.stButton > button { background: linear-gradient(135deg, #388e3c 0%, #1b5e20 100%) !important; color: white !important; border: none !important; border-radius: 12px !important; padding: 0.5rem 1.5rem !important; font-weight: 600 !important; box-shadow: 0 4px 15px rgba(56, 142, 60, 0.3) !important; }
+.stButton > button:hover { transform: translateY(-2px) !important; box-shadow: 0 6px 20px rgba(76, 175, 80, 0.5) !important; }
+.theme-line { height: 4px; background: linear-gradient(90deg, transparent, #388e3c, #81c784, transparent); border-radius: 2px; margin: 1.5rem 0; }
+</style>
+"""
+
+# CHANGE THIS LINE TO SWITCH THEMES: FOREST_THEME, OCEAN_THEME, DESERT_THEME, or PLANTS_THEME
+SELECTED_THEME = FOREST_THEME
+
+st.markdown(SELECTED_THEME, unsafe_allow_html=True)
 
 # ==========================================
 # 2. SHARED CHAT STORAGE SETUP
@@ -111,7 +160,6 @@ def load_chat_data():
             with open(CHAT_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 if isinstance(data, dict):
-                    # Sanitize any legacy room structures that were lists
                     clean_data = {}
                     for room_name, room_val in data.items():
                         if isinstance(room_val, dict):
@@ -141,10 +189,9 @@ chat_data = load_chat_data()
 # 3. SIDEBAR — USER IDENTITY & ROOM CONTROLS
 # ==========================================
 with st.sidebar:
-    st.markdown("## 🌲 **Whispers Private Chat**")
+    st.markdown("## 🔒 **Whispers Private Chat**")
     st.markdown("---")
 
-    # Profile Setup
     username = st.text_input("Your Alias / Name:", value="Guest")
     st.markdown("---")
 
@@ -190,7 +237,6 @@ with st.sidebar:
 
     else:
         st.markdown("### 🚪 Join Room")
-        # Safe dictionary attribute check prevents AttributeError on legacy lists
         available_rooms = [
             r
             for r, data in chat_data.items()
@@ -241,11 +287,11 @@ active_room = st.session_state.get("authenticated_room")
 
 if not active_room or active_room not in chat_data:
     st.markdown(
-        '<div class="forest-header">🌲 Whispers Chat</div>',
+        '<div class="theme-header">🌿 Whispers Chat</div>',
         unsafe_allow_html=True,
     )
     st.markdown(
-        '<div class="forest-subtitle">Host a private session or enter a PIN to join someone far away.</div>',
+        '<div class="theme-subtitle">Host a private session or enter a PIN to join someone far away.</div>',
         unsafe_allow_html=True,
     )
     st.info("Select an option from the sidebar to start.")
@@ -275,11 +321,11 @@ col_title, col_host_actions = st.columns([3, 1])
 
 with col_title:
     st.markdown(
-        f'<div class="forest-header">🌲 Room: {active_room}</div>',
+        f'<div class="theme-header">🔒 Room: {active_room}</div>',
         unsafe_allow_html=True,
     )
     st.markdown(
-        f'<div class="forest-subtitle">Host: <b>{room_info.get("host")}</b> | Joined as: <b>{username}</b></div>',
+        f'<div class="theme-subtitle">Host: <b>{room_info.get("host")}</b> | Joined as: <b>{username}</b></div>',
         unsafe_allow_html=True,
     )
 
@@ -287,7 +333,6 @@ with col_host_actions:
     if is_host:
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("🔥 Close Room & Wipe All Data", type="primary"):
-            # Completely delete room and messages from storage
             if active_room in chat_data:
                 del chat_data[active_room]
                 save_chat_data(chat_data)
@@ -297,7 +342,7 @@ with col_host_actions:
             time.sleep(1)
             st.rerun()
 
-st.markdown('<div class="forest-line"></div>', unsafe_allow_html=True)
+st.markdown('<div class="theme-line"></div>', unsafe_allow_html=True)
 
 # ==========================================
 # 5. ATTACHMENT CONTROLS
@@ -350,9 +395,9 @@ else:
             st.markdown(
                 f"""
                 <div class="chat-bubble">
-                    <span style="font-weight: 700; color: #a8e063;">{sender}</span>
-                    <span style="font-size: 0.8rem; color: #a3e635; float: right;">{timestamp}</span>
-                    <p style="margin-top: 0.5rem; margin-bottom: 0.5rem; color: #e8f5e9;">{text}</p>
+                    <span style="font-weight: 700;">{sender}</span>
+                    <span style="font-size: 0.8rem; float: right;">{timestamp}</span>
+                    <p style="margin-top: 0.5rem; margin-bottom: 0.5rem;">{text}</p>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -365,7 +410,7 @@ else:
             if msg.get("video_data"):
                 st.video(base64.b64decode(msg["video_data"]))
 
-st.markdown('<div class="forest-line"></div>', unsafe_allow_html=True)
+st.markdown('<div class="theme-line"></div>', unsafe_allow_html=True)
 
 # ==========================================
 # 7. CHAT INPUT & SEND LOGIC
