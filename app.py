@@ -2,37 +2,38 @@ import base64
 import datetime
 import json
 import os
+import time
 import streamlit as st
 
 # ==========================================
-# 1. STREAMLIT CONFIG & WARM SUNSET THEME
+# 1. STREAMLIT CONFIG & FOREST THEME CSS
 # ==========================================
 st.set_page_config(
-    page_title="Whispers — Real-Time Chat Room",
-    page_icon="💬",
+    page_title="Whispers — Private Session Chat",
+    page_icon="🌲",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-WARM_LIGHT_CSS = """
+FOREST_CSS = """
 <style>
-/* App background - Light Warm Linen & Sunset Glow */
+/* App background - Deep Pine & Sage Mist */
 .stApp {
-    background: linear-gradient(135deg, #fdfbf7 0%, #fef5ed 50%, #f7ebe1 100%);
-    color: #2c2523;
+    background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+    color: #e8f5e9;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-/* Sidebar styling - Warm Sand Glassmorphism */
+/* Sidebar styling - Glassmorphism Forest Mist */
 [data-testid="stSidebar"] {
-    background: rgba(253, 246, 238, 0.9);
-    backdrop-filter: blur(10px);
-    border-right: 1px solid rgba(224, 130, 93, 0.2);
+    background: rgba(15, 32, 39, 0.85);
+    backdrop-filter: blur(12px);
+    border-right: 1px solid rgba(76, 175, 80, 0.2);
 }
 
-/* Main title styling */
-.warm-header {
-    background: linear-gradient(90deg, #e05638 0%, #d97736 50%, #c85a32 100%);
+/* Main title styling - Emerald & Glowing Mint */
+.forest-header {
+    background: linear-gradient(90deg, #a8e063 0%, #56ab2f 50%, #2e7d32 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     font-size: 2.8rem;
@@ -41,60 +42,60 @@ WARM_LIGHT_CSS = """
     letter-spacing: -1px;
 }
 
-.warm-subtitle {
-    color: #7c5c4e;
+.forest-subtitle {
+    color: #a3e635;
     font-size: 1.05rem;
     margin-bottom: 1.5rem;
     font-weight: 500;
 }
 
-/* Chat Input & Textarea Styling */
+/* Inputs, Textarea & Selectbox Styling */
 textarea, input, select {
-    background-color: #ffffff !important;
-    color: #2c2523 !important;
-    border: 1px solid #e0825d !important;
+    background-color: rgba(20, 40, 48, 0.85) !important;
+    color: #f1f8e9 !important;
+    border: 1px solid #4caf50 !important;
     border-radius: 10px !important;
 }
 
-/* Custom Message Bubble */
+/* Custom Message Bubble - Dark Moss Glass Card */
 .chat-bubble {
-    background: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.07);
     backdrop-filter: blur(12px);
     border-radius: 14px;
     padding: 1rem 1.2rem;
-    border: 1px solid rgba(224, 130, 93, 0.25);
-    box-shadow: 0 4px 15px rgba(184, 115, 84, 0.06);
+    border: 1px solid rgba(129, 199, 132, 0.2);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
     margin-bottom: 1rem;
 }
 
-/* Buttons */
+/* Buttons - Emerald Canopy */
 .stButton > button {
-    background: linear-gradient(135deg, #e05638 0%, #d97736 100%) !important;
+    background: linear-gradient(135deg, #56ab2f 0%, #2e7d32 100%) !important;
     color: white !important;
     border: none !important;
     border-radius: 12px !important;
     padding: 0.5rem 1.5rem !important;
     font-weight: 600 !important;
-    box-shadow: 0 4px 15px rgba(224, 86, 56, 0.3) !important;
+    box-shadow: 0 4px 15px rgba(46, 125, 50, 0.4) !important;
     transition: all 0.3s ease !important;
 }
 
 .stButton > button:hover {
     transform: translateY(-2px) !important;
-    box-shadow: 0 6px 20px rgba(224, 86, 56, 0.5) !important;
+    box-shadow: 0 6px 20px rgba(168, 224, 99, 0.5) !important;
 }
 
-/* Warm Line Divider */
-.warm-line {
+/* Forest Line Divider */
+.forest-line {
     height: 4px;
-    background: linear-gradient(90deg, transparent, #e05638, #f0a273, transparent);
+    background: linear-gradient(90deg, transparent, #56ab2f, #a8e063, transparent);
     border-radius: 2px;
     margin: 1.5rem 0;
 }
 </style>
 """
 
-st.markdown(WARM_LIGHT_CSS, unsafe_allow_html=True)
+st.markdown(FOREST_CSS, unsafe_allow_html=True)
 
 # ==========================================
 # 2. SHARED CHAT STORAGE SETUP
@@ -103,70 +104,161 @@ CHAT_FILE = "chat_rooms.json"
 
 
 def load_chat_data():
-    """Load chat rooms from shared JSON storage."""
+    """Load chat rooms and metadata from shared JSON storage."""
     if os.path.exists(CHAT_FILE):
         try:
             with open(CHAT_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
             pass
-    return {"General": []}
+    return {}
 
 
 def save_chat_data(data):
-    """Save chat rooms to shared JSON storage."""
+    """Save chat rooms and metadata to shared JSON storage."""
     with open(CHAT_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
 
-# Load data into session memory
 chat_data = load_chat_data()
 
 # ==========================================
-# 3. SIDEBAR — USER PROFILE & ROOMS
+# 3. SIDEBAR — USER IDENTITY & ROOM CONTROLS
 # ==========================================
 with st.sidebar:
-    st.markdown("## 💬 **Whispers Chatroom**")
+    st.markdown("## 🌲 **Whispers Private Chat**")
     st.markdown("---")
 
-    # Username Profile
-    username = st.text_input("Your Name / Alias:", value="User_1")
+    # Profile Setup
+    username = st.text_input("Your Alias / Name:", value="Guest")
+    st.markdown("---")
+
+    action = st.radio("Choose Action:", ["Join Existing Room", "Host New Room"])
+
+    if action == "Host New Room":
+        st.markdown("### 🔑 Host Room Settings")
+        new_room_id = st.text_input("New Room Name / ID:")
+        room_pin = st.text_input("Set Room Security PIN:", type="password")
+
+        if st.button("🚀 Create & Host Room"):
+            if not new_room_id.strip():
+                st.error("Room Name cannot be empty.")
+            elif new_room_id.strip() in chat_data:
+                st.error("A room with this name already exists!")
+            else:
+                chat_data[new_room_id.strip()] = {
+                    "host": username,
+                    "pin": room_pin.strip(),
+                    "messages": [],
+                    "active": True,
+                }
+                save_chat_data(chat_data)
+                st.session_state["current_room"] = new_room_id.strip()
+                st.session_state["is_host"] = True
+                st.session_state["authenticated_room"] = new_room_id.strip()
+                st.success(f"Room '{new_room_id.strip()}' created as Host!")
+                st.rerun()
+
+    else:
+        st.markdown("### 🚪 Join Room")
+        available_rooms = [
+            r for r, data in chat_data.items() if data.get("active", True)
+        ]
+
+        if not available_rooms:
+            st.info("No active rooms available. Create one to get started!")
+            selected_room = None
+        else:
+            selected_room = st.selectbox(
+                "Select Room:", options=available_rooms
+            )
+            enter_pin = st.text_input(
+                "Enter Security PIN (if set):", type="password"
+            )
+
+            if st.button("🔓 Enter Room"):
+                room_info = chat_data[selected_room]
+                expected_pin = room_info.get("pin", "")
+
+                if expected_pin and enter_pin.strip() != expected_pin:
+                    st.error("Incorrect PIN!")
+                else:
+                    st.session_state["current_room"] = selected_room
+                    st.session_state["is_host"] = (
+                        username == room_info.get("host")
+                    )
+                    st.session_state["authenticated_room"] = selected_room
+                    st.success("Joined room successfully!")
+                    st.rerun()
 
     st.markdown("---")
-    st.markdown("### 🚪 Select or Create Room")
+    st.caption("ℹ️️ Messages update automatically when refreshing or sending.")
 
-    room_names = list(chat_data.keys())
-    selected_room = st.selectbox("Choose Chat Room:", options=room_names)
+# ==========================================
+# 4. MAIN INTERFACE & ROOM LOGIC
+# ==========================================
+active_room = st.session_state.get("authenticated_room")
 
-    new_room = st.text_input("Create New Room:")
-    if st.button("➕ Create Room"):
-        if new_room.strip() and new_room.strip() not in chat_data:
-            chat_data[new_room.strip()] = []
+if not active_room or active_room not in chat_data:
+    st.markdown(
+        '<div class="forest-header">🌲 Whispers Chat</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="forest-subtitle">Host a private session or enter a PIN to join someone far away.</div>',
+        unsafe_allow_html=True,
+    )
+    st.info("Select an option from the sidebar to start.")
+    st.stop()
+
+room_info = chat_data[active_room]
+
+# Check if room was closed by the host
+if not room_info.get("active", True):
+    st.error(
+        "🛑 This room session was closed and destroyed by the Host. All messages have been wiped."
+    )
+    if st.button("Return to Lobby"):
+        del st.session_state["authenticated_room"]
+        st.rerun()
+    st.stop()
+
+# Room Header & Host Controls
+is_host = (username == room_info.get("host")) or st.session_state.get(
+    "is_host", False
+)
+
+col_title, col_host_actions = st.columns([3, 1])
+
+with col_title:
+    st.markdown(
+        f'<div class="forest-header">🌲 Room: {active_room}</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<div class="forest-subtitle">Host: <b>{room_info.get("host")}</b> | Joined as: <b>{username}</b></div>',
+        unsafe_allow_html=True,
+    )
+
+with col_host_actions:
+    if is_host:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🔥 Close Room & Wipe All Data", type="primary"):
+            # Completely delete room and messages from storage
+            del chat_data[active_room]
             save_chat_data(chat_data)
-            st.success(f"Room '{new_room.strip()}' created!")
+            if "authenticated_room" in st.session_state:
+                del st.session_state["authenticated_room"]
+            st.success("Session closed! All chat history wiped instantly.")
+            time.sleep(1)
             st.rerun()
 
-    st.markdown("---")
-    if st.button("🔄 Refresh Messages"):
-        st.rerun()
-
-# ==========================================
-# 4. MAIN INTERFACE
-# ==========================================
-st.markdown(
-    f'<div class="warm-header">💬 {selected_room}</div>',
-    unsafe_allow_html=True,
-)
-st.markdown(
-    '<div class="warm-subtitle">Real-time messaging, audio voice notes, image sharing, and file transfers</div>',
-    unsafe_allow_html=True,
-)
-st.markdown('<div class="warm-line"></div>', unsafe_allow_html=True)
+st.markdown('<div class="forest-line"></div>', unsafe_allow_html=True)
 
 # ==========================================
 # 5. ATTACHMENT CONTROLS
 # ==========================================
-with st.expander("📎 Attach Media or Voice Note"):
+with st.expander("📎 Attach Media / Voice Note"):
     col1, col2, col3 = st.columns(3)
 
     uploaded_image = None
@@ -175,16 +267,15 @@ with st.expander("📎 Attach Media or Voice Note"):
 
     with col1:
         img_file = st.file_uploader(
-            "Attach Image", type=["png", "jpg", "jpeg", "webp"]
+            "Attach Image", type=["png", "jpg", "jpeg", "webp"], key="room_img"
         )
         if img_file:
             uploaded_image = img_file
 
     with col2:
-        st.markdown("**Voice Note / Audio**")
-        rec_audio = st.audio_input("Record Voice Note")
+        rec_audio = st.audio_input("Record Voice Note", key="room_rec")
         aud_file = st.file_uploader(
-            "Upload Audio", type=["wav", "mp3", "m4a", "ogg"]
+            "Upload Audio", type=["wav", "mp3", "m4a", "ogg"], key="room_aud"
         )
         if rec_audio:
             uploaded_audio = rec_audio
@@ -193,7 +284,7 @@ with st.expander("📎 Attach Media or Voice Note"):
 
     with col3:
         vid_file = st.file_uploader(
-            "Attach Video File", type=["mp4", "mov", "avi"]
+            "Attach Video File", type=["mp4", "mov", "avi"], key="room_vid"
         )
         if vid_file:
             uploaded_video = vid_file
@@ -201,28 +292,27 @@ with st.expander("📎 Attach Media or Voice Note"):
 # ==========================================
 # 6. RENDER CHAT MESSAGES
 # ==========================================
-room_messages = chat_data.get(selected_room, [])
+messages = room_info.get("messages", [])
 
-if not room_messages:
-    st.info("No messages in this room yet. Send a message below!")
+if not messages:
+    st.info("Room is active and secure. Send a message or media below!")
 else:
-    for msg in room_messages:
-        timestamp = msg.get("timestamp", "")
+    for msg in messages:
         sender = msg.get("sender", "Anonymous")
+        timestamp = msg.get("timestamp", "")
         text = msg.get("text", "")
 
         st.markdown(
             f"""
             <div class="chat-bubble">
-                <span style="font-weight: 700; color: #e05638;">{sender}</span>
-                <span style="font-size: 0.8rem; color: #7c5c4e; float: right;">{timestamp}</span>
-                <p style="margin-top: 0.5rem; margin-bottom: 0.5rem; color: #2c2523;">{text}</p>
+                <span style="font-weight: 700; color: #a8e063;">{sender}</span>
+                <span style="font-size: 0.8rem; color: #a3e635; float: right;">{timestamp}</span>
+                <p style="margin-top: 0.5rem; margin-bottom: 0.5rem; color: #e8f5e9;">{text}</p>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-        # Render attachments if present
         if msg.get("image_data"):
             st.image(base64.b64decode(msg["image_data"]))
         if msg.get("audio_data"):
@@ -230,7 +320,7 @@ else:
         if msg.get("video_data"):
             st.video(base64.b64decode(msg["video_data"]))
 
-st.markdown('<div class="warm-line"></div>', unsafe_allow_html=True)
+st.markdown('<div class="forest-line"></div>', unsafe_allow_html=True)
 
 # ==========================================
 # 7. CHAT INPUT & SEND LOGIC
@@ -238,25 +328,25 @@ st.markdown('<div class="warm-line"></div>', unsafe_allow_html=True)
 user_message = st.chat_input("Type your message...")
 
 if user_message or uploaded_image or uploaded_audio or uploaded_video:
-    new_entry = {
+    new_msg = {
         "sender": username,
         "text": user_message if user_message else "",
         "timestamp": datetime.datetime.now().strftime("%I:%M %p"),
     }
 
     if uploaded_image:
-        new_entry["image_data"] = base64.b64encode(
+        new_msg["image_data"] = base64.b64encode(
             uploaded_image.read()
         ).decode("utf-8")
     if uploaded_audio:
-        new_entry["audio_data"] = base64.b64encode(
+        new_msg["audio_data"] = base64.b64encode(
             uploaded_audio.read()
         ).decode("utf-8")
     if uploaded_video:
-        new_entry["video_data"] = base64.b64encode(
+        new_msg["video_data"] = base64.b64encode(
             uploaded_video.read()
         ).decode("utf-8")
 
-    chat_data[selected_room].append(new_entry)
+    chat_data[active_room]["messages"].append(new_msg)
     save_chat_data(chat_data)
     st.rerun()
