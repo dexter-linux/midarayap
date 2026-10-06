@@ -1,14 +1,15 @@
+import base64
+import datetime
+import json
 import os
-import tempfile
-import google.generativeai as genai
 import streamlit as st
 
 # ==========================================
 # 1. STREAMLIT CONFIG & WARM SUNSET THEME
 # ==========================================
 st.set_page_config(
-    page_title="Multimodal AI Chatbot",
-    page_icon="🤖",
+    page_title="Whispers — Real-Time Chat Room",
+    page_icon="💬",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -43,16 +44,27 @@ WARM_LIGHT_CSS = """
 .warm-subtitle {
     color: #7c5c4e;
     font-size: 1.05rem;
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
     font-weight: 500;
 }
 
-/* Chat Input & Selectbox Styling */
+/* Chat Input & Textarea Styling */
 textarea, input, select {
     background-color: #ffffff !important;
     color: #2c2523 !important;
     border: 1px solid #e0825d !important;
     border-radius: 10px !important;
+}
+
+/* Custom Message Bubble */
+.chat-bubble {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    border-radius: 14px;
+    padding: 1rem 1.2rem;
+    border: 1px solid rgba(224, 130, 93, 0.25);
+    box-shadow: 0 4px 15px rgba(184, 115, 84, 0.06);
+    margin-bottom: 1rem;
 }
 
 /* Buttons */
@@ -85,200 +97,166 @@ textarea, input, select {
 st.markdown(WARM_LIGHT_CSS, unsafe_allow_html=True)
 
 # ==========================================
-# 2. SIDEBAR & API KEY SETUP
+# 2. SHARED CHAT STORAGE SETUP
+# ==========================================
+CHAT_FILE = "chat_rooms.json"
+
+
+def load_chat_data():
+    """Load chat rooms from shared JSON storage."""
+    if os.path.exists(CHAT_FILE):
+        try:
+            with open(CHAT_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"General": []}
+
+
+def save_chat_data(data):
+    """Save chat rooms to shared JSON storage."""
+    with open(CHAT_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+
+# Load data into session memory
+chat_data = load_chat_data()
+
+# ==========================================
+# 3. SIDEBAR — USER PROFILE & ROOMS
 # ==========================================
 with st.sidebar:
-    st.markdown("## 🤖 **Multimodal AI Assistant**")
+    st.markdown("## 💬 **Whispers Chatroom**")
     st.markdown("---")
 
-    # Retrieve API key from Streamlit secrets or user input
-    api_key = os.environ.get("GEMINI_API_KEY", "")
-
-    if not api_key:
-        api_key = st.text_input(
-            "Enter Gemini API Key:",
-            type="password",
-            help="Get a free key at aistudio.google.com",
-        )
-        st.markdown("[Get a Free Gemini API Key](https://aistudio.google.com/)")
-    else:
-        st.success("🔑 API Key configured from secrets!")
+    # Username Profile
+    username = st.text_input("Your Name / Alias:", value="User_1")
 
     st.markdown("---")
-    st.markdown(
-        "**Supported Inputs:**\n"
-        "• 💬 **Text Messages**\n"
-        "• 🖼️ **Images** (PNG, JPG, WEBP)\n"
-        "• 🎙️ **Audio Recording / Files** (WAV, MP3, M4A)\n"
-        "• 🎥 **Video Files** (MP4, MOV, AVI)"
-    )
+    st.markdown("### 🚪 Select or Create Room")
 
-    if st.button("🗑️ Clear Conversation"):
-        st.session_state.messages = []
+    room_names = list(chat_data.keys())
+    selected_room = st.selectbox("Choose Chat Room:", options=room_names)
+
+    new_room = st.text_input("Create New Room:")
+    if st.button("➕ Create Room"):
+        if new_room.strip() and new_room.strip() not in chat_data:
+            chat_data[new_room.strip()] = []
+            save_chat_data(chat_data)
+            st.success(f"Room '{new_room.strip()}' created!")
+            st.rerun()
+
+    st.markdown("---")
+    if st.button("🔄 Refresh Messages"):
         st.rerun()
 
 # ==========================================
-# 3. INITIALIZE GEMINI CLIENT & STATE
+# 4. MAIN INTERFACE
 # ==========================================
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# Header
 st.markdown(
-    '<div class="warm-header">🤖 Multimodal AI Assistant</div>',
+    f'<div class="warm-header">💬 {selected_room}</div>',
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<div class="warm-subtitle">Chat using text, audio recordings, images, and video powered by Gemini</div>',
+    '<div class="warm-subtitle">Real-time messaging, audio voice notes, image sharing, and file transfers</div>',
     unsafe_allow_html=True,
 )
 st.markdown('<div class="warm-line"></div>', unsafe_allow_html=True)
 
-if not api_key:
-    st.warning(
-        "Please provide a Gemini API Key in the sidebar to start chatting."
-    )
-    st.stop()
-
-genai.configure(api_key=api_key)
-model = genai.GenerativeModel("gemini-2.5-flash")
-
 # ==========================================
-# 4. MEDIA INPUT EXPANDER
+# 5. ATTACHMENT CONTROLS
 # ==========================================
-st.markdown("### 📎 Attach Media")
+with st.expander("📎 Attach Media or Voice Note"):
+    col1, col2, col3 = st.columns(3)
 
-col1, col2, col3 = st.columns(3)
+    uploaded_image = None
+    uploaded_audio = None
+    uploaded_video = None
 
-uploaded_image = None
-uploaded_audio = None
-uploaded_video = None
-
-with col1:
-    image_file = st.file_uploader(
-        "Upload Image", type=["png", "jpg", "jpeg", "webp"], key="img_uploader"
-    )
-    if image_file:
-        uploaded_image = image_file
-        st.image(image_file, caption="Attached Image", use_container_width=True)
-
-with col2:
-    st.markdown("**Record or Upload Audio**")
-    recorded_audio = st.audio_input("Record Voice", key="audio_recorder")
-    audio_file = st.file_uploader(
-        "Upload Audio", type=["wav", "mp3", "m4a", "ogg"], key="audio_uploader"
-    )
-
-    if recorded_audio:
-        uploaded_audio = recorded_audio
-    elif audio_file:
-        uploaded_audio = audio_file
-
-with col3:
-    video_file = st.file_uploader(
-        "Upload Video", type=["mp4", "mov", "avi"], key="vid_uploader"
-    )
-    if video_file:
-        uploaded_video = video_file
-        st.video(video_file)
-
-st.markdown('<div class="warm-line"></div>', unsafe_allow_html=True)
-
-# ==========================================
-# 5. RENDER CHAT HISTORY
-# ==========================================
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
-        if "media_type" in msg:
-            if msg["media_type"] == "image":
-                st.image(msg["media_data"])
-            elif msg["media_type"] == "audio":
-                st.audio(msg["media_data"])
-            elif msg["media_type"] == "video":
-                st.video(msg["media_data"])
-
-# ==========================================
-# 6. HANDLE CHAT INPUT & MULTIMODAL INFERENCE
-# ==========================================
-user_prompt = st.chat_input("Ask a question or describe attached media...")
-
-if user_prompt:
-    contents = []
-    temp_files_to_cleanup = []
-
-    # Display user text in chat
-    st.session_state.messages.append({"role": "user", "content": user_prompt})
-    with st.chat_message("user"):
-        st.markdown(user_prompt)
-
-    # Process Image Attachment
-    if uploaded_image:
-        image_bytes = uploaded_image.read()
-        contents.append({"mime_type": uploaded_image.type, "data": image_bytes})
-        st.session_state.messages.append({
-            "role": "user",
-            "content": "[Attached Image]",
-            "media_type": "image",
-            "media_data": image_bytes,
-        })
-
-    # Process Audio Attachment
-    if uploaded_audio:
-        audio_bytes = uploaded_audio.read()
-        mime_t = (
-            uploaded_audio.type
-            if hasattr(uploaded_audio, "type") and uploaded_audio.type
-            else "audio/wav"
+    with col1:
+        img_file = st.file_uploader(
+            "Attach Image", type=["png", "jpg", "jpeg", "webp"]
         )
-        contents.append({"mime_type": mime_t, "data": audio_bytes})
-        st.session_state.messages.append({
-            "role": "user",
-            "content": "[Attached Audio]",
-            "media_type": "audio",
-            "media_data": audio_bytes,
-        })
+        if img_file:
+            uploaded_image = img_file
 
-    # Process Video Attachment
+    with col2:
+        st.markdown("**Voice Note / Audio**")
+        rec_audio = st.audio_input("Record Voice Note")
+        aud_file = st.file_uploader(
+            "Upload Audio", type=["wav", "mp3", "m4a", "ogg"]
+        )
+        if rec_audio:
+            uploaded_audio = rec_audio
+        elif aud_file:
+            uploaded_audio = aud_file
+
+    with col3:
+        vid_file = st.file_uploader(
+            "Attach Video File", type=["mp4", "mov", "avi"]
+        )
+        if vid_file:
+            uploaded_video = vid_file
+
+# ==========================================
+# 6. RENDER CHAT MESSAGES
+# ==========================================
+room_messages = chat_data.get(selected_room, [])
+
+if not room_messages:
+    st.info("No messages in this room yet. Send a message below!")
+else:
+    for msg in room_messages:
+        timestamp = msg.get("timestamp", "")
+        sender = msg.get("sender", "Anonymous")
+        text = msg.get("text", "")
+
+        st.markdown(
+            f"""
+            <div class="chat-bubble">
+                <span style="font-weight: 700; color: #e05638;">{sender}</span>
+                <span style="font-size: 0.8rem; color: #7c5c4e; float: right;">{timestamp}</span>
+                <p style="margin-top: 0.5rem; margin-bottom: 0.5rem; color: #2c2523;">{text}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # Render attachments if present
+        if msg.get("image_data"):
+            st.image(base64.b64decode(msg["image_data"]))
+        if msg.get("audio_data"):
+            st.audio(base64.b64decode(msg["audio_data"]))
+        if msg.get("video_data"):
+            st.video(base64.b64decode(msg["video_data"]))
+
+st.markdown('<div class="warm-line"></div>', unsafe_allow_html=True)
+
+# ==========================================
+# 7. CHAT INPUT & SEND LOGIC
+# ==========================================
+user_message = st.chat_input("Type your message...")
+
+if user_message or uploaded_image or uploaded_audio or uploaded_video:
+    new_entry = {
+        "sender": username,
+        "text": user_message if user_message else "",
+        "timestamp": datetime.datetime.now().strftime("%I:%M %p"),
+    }
+
+    if uploaded_image:
+        new_entry["image_data"] = base64.b64encode(
+            uploaded_image.read()
+        ).decode("utf-8")
+    if uploaded_audio:
+        new_entry["audio_data"] = base64.b64encode(
+            uploaded_audio.read()
+        ).decode("utf-8")
     if uploaded_video:
-        suffix = f".{uploaded_video.name.split('.')[-1]}"
-        with tempfile.NamedTemporaryFile(
-            delete=False, suffix=suffix
-        ) as tmp:
-            tmp.write(uploaded_video.read())
-            tmp_path = tmp.name
-            temp_files_to_cleanup.append(tmp_path)
+        new_entry["video_data"] = base64.b64encode(
+            uploaded_video.read()
+        ).decode("utf-8")
 
-        st.info("Uploading video to Gemini for analysis...")
-        video_gemini_file = genai.upload_file(tmp_path)
-        contents.append(video_gemini_file)
-        st.session_state.messages.append({
-            "role": "user",
-            "content": "[Attached Video]",
-            "media_type": "video",
-            "media_data": uploaded_video,
-        })
-
-    # Append Text Prompt
-    contents.append(user_prompt)
-
-    # Generate Response
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            try:
-                response = model.generate_content(contents)
-                assistant_text = response.text
-                st.markdown(assistant_text)
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": assistant_text}
-                )
-            except Exception as e:
-                error_msg = f"Error generating response: {str(e)}"
-                st.error(error_msg)
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": error_msg}
-                )
-            finally:
-                for tmp_file in temp_files_to_cleanup:
-                    if os.path.exists(tmp_file):
-                        os.remove(tmp_file)
+    chat_data[selected_room].append(new_entry)
+    save_chat_data(chat_data)
+    st.rerun()
